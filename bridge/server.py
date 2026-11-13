@@ -12,8 +12,8 @@ import base64, os, plistlib, re, socket, struct, subprocess, threading, time, ur
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from xml.sax.saxutils import escape
 
-AUDIO_PIPE = "/shared/audio"
-META_PIPE = "/shared/metadata"
+AUDIO_PIPE = os.environ.get("AUDIO_PIPE", "/shared/audio")
+META_PIPE = os.environ.get("META_PIPE", "/shared/metadata")
 PORT = int(os.environ.get("STREAM_PORT", "8000"))
 STREAM_URL = os.environ.get("STREAM_URL", "")
 RENDERER_IP = os.environ.get("RENDERER_IP") or os.environ.get("WIIM_IP", "")

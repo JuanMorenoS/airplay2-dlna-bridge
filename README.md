@@ -90,3 +90,19 @@ endpoint.
 ## License
 
 MIT
+
+## Home Assistant app (this fork)
+
+This fork also ships the bridge as a Home Assistant app (add-on), one
+container with shairport-sync (AirPlay 2 + nqptp + avahi) and the bridge.
+
+1. Settings → Apps → App Store → ⋮ → Repositories → add
+   `https://github.com/JuanMorenoS/airplay2-dlna-bridge`
+2. Install **AirPlay 2 DLNA Bridge**, set `renderer_ip` (and `host_ip`, or
+   leave it empty to auto-detect), start it.
+
+It uses the host network (mDNS + PTP ports 319/320), so it cannot run next
+to another AirPlay 2 receiver on the same host (for example the Music
+Assistant AirPlay Receiver plugin). `airplay2_dlna_bridge/server.py` is a
+copy of `bridge/server.py` (the app build context is its own folder): keep
+them in sync.
