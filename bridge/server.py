@@ -99,7 +99,7 @@ DIDL_PUSH = os.environ.get("DIDL_PUSH", "1") == "1"
 # audio and reconnects at the new position (faster reaction to phone actions)
 FLUSH_RESYNC = os.environ.get("FLUSH_RESYNC", "1") == "1"
 PUSH_SETTLE = 2.0
-STATE = {"active": False, "dirty": 0.0, "pushed": None}
+STATE = {"active": False, "dirty": 0.0, "pushed": None, "pushed_at": 0.0}
 CLIENTS = set()          # sockets of connected stream clients
 
 
@@ -310,11 +310,20 @@ class Renderer:
                 f'<u:{name} xmlns:u="{srv}"><InstanceID>0</InstanceID>{args}</u:{name}>'
                 f'</s:Body></s:Envelope>')
         try:
-            http_req(control, data=body.encode(), headers={
+            return http_req(control, data=body.encode(), headers={
                 "Content-Type": 'text/xml; charset="utf-8"',
-                "SOAPACTION": f'"{srv}#{name}"'})
+                "SOAPACTION": f'"{srv}#{name}"'}).decode(errors="replace")
         except Exception as e:
             log(f"renderer {name} failed: {e}")
+            return None
+
+    def current_uri(self):
+        """URI the renderer is playing now; None if it could not be asked"""
+        resp = self.action("GetMediaInfo", "")
+        if resp is None:
+            return None
+        m = re.search(r"<CurrentURI>([^<]*)</CurrentURI>", resp)
+        return m.group(1) if m else ""
 
     def set_volume(self, vol):
         self.action("SetVolume",
@@ -426,11 +435,53 @@ def didl_pusher(wiim):
         if STATE["pushed"] is not None and not DIDL_PUSH:
             continue    # initial play happened; mid-play refreshes disabled
         STATE["pushed"] = snap
+        STATE["pushed_at"] = time.time()
         wiim.play(STREAM_URL)
+
+
+SOURCE_POLL = 3                     # seconds between renderer source checks
+SOURCE_GRACE = 8                    # ignore checks this long after our own push
+SOURCE_MISSES = 2                   # consecutive "not our stream" answers before giving up
+
+
+def drop_airplay_session(reason):
+    """end the AirPlay session in shairport-sync so the sender sees it disconnect"""
+    log(f"dropping AirPlay session: {reason}")
+    try:
+        subprocess.run(["dbus-send", "--system", "--print-reply",
+                        "--dest=org.gnome.ShairportSync", "/org/gnome/ShairportSync",
+                        "org.gnome.ShairportSync.DropSession"],
+                       capture_output=True, timeout=5, check=True)
+    except Exception as e:
+        log(f"DropSession failed: {e}")
+
+
+def source_watcher(wiim):
+    """if the renderer is switched to another source (its app, a button, line-in...)
+    while AirPlay is active, end the AirPlay session instead of leaving it dangling"""
+    ours = STREAM_URL.rsplit("/", 1)[0]
+    misses = 0
+    while True:
+        time.sleep(SOURCE_POLL)
+        if (not RENDERER_IP or not STATE["active"] or STATE["pushed"] is None
+                or time.time() - STATE["pushed_at"] < SOURCE_GRACE):
+            misses = 0
+            continue
+        uri = wiim.current_uri()
+        if uri is None:             # renderer unreachable: not a source change
+            continue
+        if uri.startswith(ours):
+            misses = 0
+            continue
+        misses += 1
+        if misses >= SOURCE_MISSES:
+            misses = 0
+            drop_airplay_session(f"renderer switched source ({uri[:80] or 'no URI'})")
 
 
 def metadata_reader(wiim):
     threading.Thread(target=didl_pusher, args=(wiim,), daemon=True).start()
+    threading.Thread(target=source_watcher, args=(wiim,), daemon=True).start()
     pending = {}
 
     while True:
