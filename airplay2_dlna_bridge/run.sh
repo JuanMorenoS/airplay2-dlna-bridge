@@ -40,5 +40,20 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
+# mDNS: run avahi ourselves so its log reaches the app log, and only on the LAN
+# interface (host network also has docker/hassio bridges the iPhone cannot reach)
+LAN_IF="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p')"
+sed -i -e "s/^#\{0,1\}allow-interfaces=.*/allow-interfaces=${LAN_IF}/" \
+       -e "s/^#\{0,1\}use-ipv6=.*/use-ipv6=no/" \
+       -e "s/^#\{0,1\}publish-workstation=.*/publish-workstation=no/" /etc/avahi/avahi-daemon.conf
+grep -q '^allow-interfaces=' /etc/avahi/avahi-daemon.conf || \
+  sed -i "/^\[server\]/a allow-interfaces=${LAN_IF}" /etc/avahi/avahi-daemon.conf
+echo "mDNS interface: ${LAN_IF}"
+rm -f /run/dbus/dbus.pid /run/avahi-daemon/pid /etc/avahi/services/*.service
+mkdir -p /run/dbus
+dbus-uuidgen --ensure
+dbus-daemon --system
+avahi-daemon --no-chroot 2>&1 | while IFS= read -r l; do echo "[avahi] $l"; done &
+
 cd /
-exec ./run.sh -c /etc/shairport-sync.conf
+ENABLE_AVAHI=0 exec ./run.sh -c /etc/shairport-sync.conf
