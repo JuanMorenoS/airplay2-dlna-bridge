@@ -33,8 +33,10 @@ sed -e "s#__AIRPLAY_NAME__#${AIRPLAY_NAME}#" -e "s#__LOG_VERBOSITY__#${LOG_VERBO
 
 echo "AirPlay name: ${AIRPLAY_NAME}; renderer: ${RENDERER_IP:-<none>}; stream: ${STREAM_URL}"
 
-# bridge first: it creates the FIFOs shairport-sync writes to; restart it if it dies
-( while true; do python3 -u /app/server.py || true; echo "bridge exited, restarting in 2 s"; sleep 2; done ) &
+# bridge first: it creates the FIFOs shairport-sync writes to; restart it if it dies.
+# LD_LIBRARY_PATH: the base image ships its own minimal ffmpeg libs in /usr/local/lib,
+# which musl searches before /usr/lib and which break Alpine's ffmpeg binary.
+( while true; do LD_LIBRARY_PATH=/usr/lib:/lib python3 -u /app/server.py || true; echo "bridge exited, restarting in 2 s"; sleep 2; done ) &
 
 for _ in $(seq 1 30); do
   [ -p "$AUDIO_PIPE" ] && [ -p "$META_PIPE" ] && break
