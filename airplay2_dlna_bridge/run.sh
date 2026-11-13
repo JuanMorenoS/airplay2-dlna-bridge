@@ -13,6 +13,8 @@ STREAM_PORT="$(opt stream_port)"
 MAX_VOLUME="$(opt max_volume)"
 LOG_VERBOSITY="$(jq -r '.log_verbosity // 1' "$OPTIONS")"
 LATENCY_OFFSET="$(jq -r '.latency_offset // 0' "$OPTIONS")"
+CLIENT_BACKLOG_SECONDS="$(jq -r '.client_backlog // 1.5' "$OPTIONS")"
+STREAM_FORMAT="$(jq -r '.stream_format // "flac"' "$OPTIONS")"
 if [ "$(opt didl_push)" = "true" ]; then DIDL_PUSH=1; else DIDL_PUSH=0; fi
 
 if [ -z "$HOST_IP" ]; then
@@ -27,12 +29,13 @@ fi
 export AUDIO_PIPE=/tmp/shared/audio
 export META_PIPE=/tmp/shared/metadata
 export RENDERER_IP STREAM_PORT MAX_VOLUME DIDL_PUSH
-export STREAM_URL="http://${HOST_IP}:${STREAM_PORT}/stream.flac"
+export CLIENT_BACKLOG_SECONDS
+export STREAM_URL="http://${HOST_IP}:${STREAM_PORT}/stream.${STREAM_FORMAT}"
 export FLUSH_RESYNC=0
 
 sed -e "s#__AIRPLAY_NAME__#${AIRPLAY_NAME}#" -e "s#__LOG_VERBOSITY__#${LOG_VERBOSITY}#" -e "s#__LATENCY_OFFSET__#${LATENCY_OFFSET}#" /etc/shairport-sync.conf.template > /etc/shairport-sync.conf
 
-echo "AirPlay name: ${AIRPLAY_NAME}; latency offset: ${LATENCY_OFFSET}s; renderer: ${RENDERER_IP:-<none>}; stream: ${STREAM_URL}"
+echo "AirPlay name: ${AIRPLAY_NAME}; latency offset: ${LATENCY_OFFSET}s; backlog: ${CLIENT_BACKLOG_SECONDS}s; renderer: ${RENDERER_IP:-<none>}; stream: ${STREAM_URL}"
 
 # bridge first: it creates the FIFOs shairport-sync writes to; restart it if it dies.
 # LD_LIBRARY_PATH: the base image ships its own minimal ffmpeg libs in /usr/local/lib,

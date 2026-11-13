@@ -1,5 +1,5 @@
 name: AirPlay 2 DLNA Bridge
-version: "0.1.5"
+version: "0.1.6"
 slug: airplay2_dlna_bridge
 description: AirPlay 2 receiver that re-streams lossless FLAC to a UPnP/DLNA renderer (WiiM), with now-playing metadata, cover art and hardware volume.
 url: https://github.com/JuanMorenoS/airplay2-dlna-bridge
@@ -19,6 +19,8 @@ options:
   didl_push: true
   log_verbosity: 1
   latency_offset: 0
+  client_backlog: 1.5
+  stream_format: flac
 schema:
   airplay_name: match(^[A-Za-z0-9 ._|'()-]{1,50}$)
   renderer_ip: str
@@ -28,3 +30,5 @@ schema:
   didl_push: bool
   log_verbosity: int(0,3)
   latency_offset: float(-3,0)
+  client_backlog: float(0,5)
+  stream_format: list(flac|wav)

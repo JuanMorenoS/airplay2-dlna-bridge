@@ -21,7 +21,9 @@ MAX_VOLUME = int(os.environ.get("MAX_VOLUME", "100"))
 
 ICY_META_INT = 131072               # same interval airupnp uses
 RING_MAX = 2 * 1024 * 1024          # ~11s of 44100/16/2 PCM
-CLIENT_BACKLOG = 256 * 1024         # ~1.5s handed out instantly to fill the player prebuffer
+# PCM handed out instantly on connect to fill the player prebuffer (default ~1.5 s);
+# the renderer then plays at least this far behind live
+CLIENT_BACKLOG = int(float(os.environ.get("CLIENT_BACKLOG_SECONDS", "1.486")) * 44100) * 4
 FRAME = 4                           # bytes per PCM frame
 
 
@@ -332,6 +334,7 @@ class Renderer:
         log(f"renderer: volume {vol}")
 
     def play(self, url):
+        mime = "audio/wav" if url.endswith(".wav") else "audio/flac"
         title = escape(NOW_PLAYING["title"] or "AirPlay 2")
         artist = escape(NOW_PLAYING["artist"])
         album = escape(NOW_PLAYING["album"])
@@ -347,7 +350,7 @@ class Renderer:
             f'<dc:creator>{artist}</dc:creator><upnp:artist>{artist}</upnp:artist>'
             f'<upnp:album>{album}</upnp:album>{art}'
             '<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>'
-            f'<res protocolInfo="http-get:*:audio/flac:*">{url}</res></item></DIDL-Lite>')
+            f'<res protocolInfo="http-get:*:{mime}:*">{url}</res></item></DIDL-Lite>')
         self.action("SetAVTransportURI", f"<CurrentURI>{escape(url)}</CurrentURI>"
                                          f"<CurrentURIMetaData>{didl}</CurrentURIMetaData>")
         self.action("Play", "<Speed>1</Speed>")
