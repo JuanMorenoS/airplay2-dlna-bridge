@@ -11,6 +11,7 @@ RENDERER_IP="$(opt renderer_ip)"
 HOST_IP="$(opt host_ip)"
 STREAM_PORT="$(opt stream_port)"
 MAX_VOLUME="$(opt max_volume)"
+LOG_VERBOSITY="$(jq -r '.log_verbosity // 1' "$OPTIONS")"
 if [ "$(opt didl_push)" = "true" ]; then DIDL_PUSH=1; else DIDL_PUSH=0; fi
 
 if [ -z "$HOST_IP" ]; then
@@ -28,7 +29,7 @@ export RENDERER_IP STREAM_PORT MAX_VOLUME DIDL_PUSH
 export STREAM_URL="http://${HOST_IP}:${STREAM_PORT}/stream.flac"
 export FLUSH_RESYNC=0
 
-sed "s#__AIRPLAY_NAME__#${AIRPLAY_NAME}#" /etc/shairport-sync.conf.template > /etc/shairport-sync.conf
+sed -e "s#__AIRPLAY_NAME__#${AIRPLAY_NAME}#" -e "s#__LOG_VERBOSITY__#${LOG_VERBOSITY}#" /etc/shairport-sync.conf.template > /etc/shairport-sync.conf
 
 echo "AirPlay name: ${AIRPLAY_NAME}; renderer: ${RENDERER_IP:-<none>}; stream: ${STREAM_URL}"
 
